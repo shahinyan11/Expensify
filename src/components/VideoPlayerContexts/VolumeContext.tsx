@@ -1,4 +1,4 @@
-import React, {useCallback, useContext, useEffect, useMemo} from 'react';
+import React, {useCallback, useContext, useEffect, useMemo, useState} from 'react';
 import {useSharedValue} from 'react-native-reanimated';
 import type ChildrenProps from '@src/types/utils/ChildrenProps';
 import {usePlaybackContext} from './PlaybackContext';
@@ -8,14 +8,15 @@ const Context = React.createContext<VolumeContext | null>(null);
 
 function VolumeContextProvider({children}: ChildrenProps) {
     const {currentVideoPlayerRef, originalParent} = usePlaybackContext();
-    const volume = useSharedValue(0);
+    const volume = useSharedValue(1);
+    const [isMuted, setIsMuted] = useState(false);
 
     const updateVolume = useCallback(
         (newVolume: number) => {
             if (!currentVideoPlayerRef.current) {
                 return;
             }
-            currentVideoPlayerRef.current.setStatusAsync({volume: newVolume, isMuted: newVolume === 0});
+            currentVideoPlayerRef.current.setStatusAsync({volume: newVolume});
             volume.value = newVolume;
         },
         [currentVideoPlayerRef, volume],
@@ -30,7 +31,7 @@ function VolumeContextProvider({children}: ChildrenProps) {
         updateVolume(volume.value);
     }, [originalParent, updateVolume, volume.value]);
 
-    const contextValue = useMemo(() => ({updateVolume, volume}), [updateVolume, volume]);
+    const contextValue = useMemo(() => ({updateVolume, volume,isMuted, setIsMuted}), [updateVolume, volume,isMuted, setIsMuted]);
     return <Context.Provider value={contextValue}>{children}</Context.Provider>;
 }
 

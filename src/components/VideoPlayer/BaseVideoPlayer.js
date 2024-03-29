@@ -18,6 +18,7 @@ import {videoPlayerDefaultProps, videoPlayerPropTypes} from './propTypes';
 import shouldReplayVideo from './shouldReplayVideo';
 import * as VideoUtils from './utils';
 import VideoPlayerControls from './VideoPlayerControls';
+import {useVolumeContext} from "@components/VideoPlayerContexts/VolumeContext";
 
 function BaseVideoPlayer({
     url,
@@ -73,6 +74,7 @@ function BaseVideoPlayer({
     const isCurrentlyURLSet = currentlyPlayingURL === url;
     const isUploading = _.some(CONST.ATTACHMENT_LOCAL_URL_PREFIX, (prefix) => url.startsWith(prefix));
     const videoStateRef = useRef(null);
+    const {volume,  setIsMuted} = useVolumeContext();
 
     const togglePlayCurrentVideo = useCallback(() => {
         videoResumeTryNumber.current = 0;
@@ -133,6 +135,14 @@ function BaseVideoPlayer({
     const handleFullscreenUpdate = useCallback(
         (e) => {
             onFullscreenUpdate(e);
+            
+            if ( e.fullscreenUpdate === VideoFullscreenUpdate.PLAYER_DID_DISMISS) {
+                currentVideoPlayerRef.current.getStatusAsync().then((status) => {
+                    volume.value = status.volume
+                    setIsMuted(status.isMuted)
+                });
+            }
+            
             // fix for iOS native and mWeb: when switching to fullscreen and then exiting
             // the fullscreen mode while playing, the video pauses
             if (e.fullscreenUpdate === VideoFullscreenUpdate.PLAYER_DID_DISMISS) {

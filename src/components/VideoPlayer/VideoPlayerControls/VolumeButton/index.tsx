@@ -3,7 +3,7 @@ import type {LayoutChangeEvent, StyleProp, ViewStyle} from 'react-native';
 import {View} from 'react-native';
 import type {GestureStateChangeEvent, GestureUpdateEvent, PanGestureChangeEventPayload, PanGestureHandlerEventPayload} from 'react-native-gesture-handler';
 import {Gesture, GestureDetector} from 'react-native-gesture-handler';
-import Animated, {runOnJS, useAnimatedStyle, useDerivedValue} from 'react-native-reanimated';
+import Animated, {runOnJS, useAnimatedStyle} from 'react-native-reanimated';
 import Hoverable from '@components/Hoverable';
 import * as Expensicons from '@components/Icon/Expensicons';
 import IconButton from '@components/VideoPlayer/IconButton';
@@ -11,6 +11,7 @@ import {useVolumeContext} from '@components/VideoPlayerContexts/VolumeContext';
 import useLocalize from '@hooks/useLocalize';
 import useThemeStyles from '@hooks/useThemeStyles';
 import * as NumberUtils from '@libs/NumberUtils';
+import {usePlaybackContext} from "@components/VideoPlayerContexts/PlaybackContext";
 
 type VolumeButtonProps = {
     /** Style for the volume button. */
@@ -33,10 +34,11 @@ const getVolumeIcon = (volume: number) => {
 function VolumeButton({style, small = false}: VolumeButtonProps) {
     const styles = useThemeStyles();
     const {translate} = useLocalize();
-    const {updateVolume, volume} = useVolumeContext();
+    const {updateVolume, volume, isMuted, setIsMuted} = useVolumeContext();
     const [sliderHeight, setSliderHeight] = useState(1);
-    const [volumeIcon, setVolumeIcon] = useState({icon: getVolumeIcon(volume.value)});
+    const [volumeIcon, setVolumeIcon] = useState({icon: getVolumeIcon(isMuted ? 0 : volume.value)});
     const [isSliderBeingUsed, setIsSliderBeingUsed] = useState(false);
+    const {currentVideoPlayerRef} = usePlaybackContext();
 
     const onSliderLayout = useCallback((event: LayoutChangeEvent) => {
         setSliderHeight(event.nativeEvent.layout.height);
@@ -46,8 +48,16 @@ function VolumeButton({style, small = false}: VolumeButtonProps) {
         (event: GestureStateChangeEvent<PanGestureHandlerEventPayload> | GestureUpdateEvent<PanGestureHandlerEventPayload & PanGestureChangeEventPayload>) => {
             const val = NumberUtils.roundToTwoDecimalPlaces(1 - event.y / sliderHeight);
             volume.value = NumberUtils.clamp(val, 0, 1);
+
+            runOnJS(updateVolume)(volume.value);
+
+            if((isMuted && volume.value > 0) || !isMuted && volume.value <= 0){
+                pressVolumeIcon()
+            }else {
+                runOnJS(updateIcon)(isMuted ? 0 : volume.value);
+            }
         },
-        [sliderHeight, volume],
+        [sliderHeight, volume, isMuted],
     );
 
     const pan = Gesture.Pan()
@@ -62,16 +72,17 @@ function VolumeButton({style, small = false}: VolumeButtonProps) {
             runOnJS(setIsSliderBeingUsed)(false);
         });
 
-    const progressBarStyle = useAnimatedStyle(() => ({height: `${volume.value * 100}%`}));
+    const progressBarStyle = useAnimatedStyle(() => ({height: `${volume.value * (isMuted ? 0 : 100)}%`}), [isMuted]);
 
     const updateIcon = useCallback((vol: number) => {
         setVolumeIcon({icon: getVolumeIcon(vol)});
     }, []);
 
-    useDerivedValue(() => {
-        runOnJS(updateVolume)(volume.value);
-        runOnJS(updateIcon)(volume.value);
-    }, [volume]);
+    const pressVolumeIcon = ()=> {
+        updateIcon(!isMuted ? 0 : volume.value)
+        currentVideoPlayerRef.current.setStatusAsync({isMuted: !isMuted });
+        setIsMuted(!isMuted)
+    }
 
     return (
         <Hoverable>
@@ -95,7 +106,7 @@ function VolumeButton({style, small = false}: VolumeButtonProps) {
 
                     <IconButton
                         tooltipText={volume.value === 0 ? translate('videoPlayer.unmute') : translate('videoPlayer.mute')}
-                        onPress={() => updateVolume(volume.value === 0 ? 1 : 0)}
+                        onPress={pressVolumeIcon}
                         src={volumeIcon.icon}
                         small={small}
                         shouldForceRenderingTooltipBelow
