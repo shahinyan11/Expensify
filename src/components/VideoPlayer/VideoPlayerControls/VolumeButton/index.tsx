@@ -49,12 +49,12 @@ function VolumeButton({style, small = false}: VolumeButtonProps) {
             const val = NumberUtils.roundToTwoDecimalPlaces(1 - event.y / sliderHeight);
             volume.value = NumberUtils.clamp(val, 0, 1);
 
-            runOnJS(updateVolume)(volume.value);
+            updateVolume(volume.value);
 
             if((isMuted && volume.value > 0) || !isMuted && volume.value <= 0){
                 pressVolumeIcon()
             }else {
-                runOnJS(updateIcon)(isMuted ? 0 : volume.value);
+                updateIcon(isMuted ? 0 : volume.value);
             }
         },
         [sliderHeight, volume, isMuted],
